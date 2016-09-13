@@ -7,27 +7,52 @@ using System.Web.Http;
 using System.Web.Http.Description;
 using Microsoft.Bot.Connector;
 using Newtonsoft.Json;
+using System.Text.RegularExpressions;
+using System.Text;
 
 namespace MyMicrofostBot
 {
     [BotAuthentication]
     public class MessagesController : ApiController
     {
+        private static Random randomizer = new Random();
+        
         /// <summary>
         /// POST: api/Messages
         /// Receive a message from a user and reply to it
         /// </summary>
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
+            ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+
             if (activity.Type == ActivityTypes.Message)
             {
-                ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
-                // calculate something for us to return
-                int length = (activity.Text ?? string.Empty).Length;
+                // XXX 心情的にはクラス化したい
+                var diceReg = new Regex("([1-9][0-9]{0,2})d([1-9][0-9]{0,8})", RegexOptions.IgnoreCase);
+                var diceTest = diceReg.Match(activity.Text);
+                // XXX どう考えても正しいメッセージの振り分けではない
+                // XXX 複数ヒットを処理する
+                if (diceTest.Success)
+                {
+                    var n = Convert.ToInt32(diceTest.Groups[1].Value);
+                    var d = Convert.ToInt32(diceTest.Groups[2].Value);
+                    var rollResults = Enumerable.Range(0, n).Select(x => randomizer.Next(d) + 1).ToList();
+                    var sb = new StringBuilder();
+                    sb.Append($"{n}d{d} = {rollResults.Sum()} [{string.Join(", ", rollResults)}]");
 
-                // return our reply to the user
-                Activity reply = activity.CreateReply($"You sent {activity.Text} which was {length} characters");
-                await connector.Conversations.ReplyToActivityAsync(reply);
+
+                    Activity reply = activity.CreateReply(sb.ToString());
+                    await connector.Conversations.ReplyToActivityAsync(reply);
+                }
+                else
+                {
+                    // calculate something for us to return
+                    int length = (activity.Text ?? string.Empty).Length;
+
+                    // return our reply to the user
+                    Activity reply = activity.CreateReply($"You sent {activity.Text} which was {length} characters");
+                    await connector.Conversations.ReplyToActivityAsync(reply);
+                }
             }
             else
             {
