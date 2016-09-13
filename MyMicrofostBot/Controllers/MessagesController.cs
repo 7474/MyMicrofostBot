@@ -23,10 +23,10 @@ namespace MyMicrofostBot
         /// </summary>
         public async Task<HttpResponseMessage> Post([FromBody]Activity activity)
         {
-            ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
-
             if (activity.Type == ActivityTypes.Message)
             {
+                ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+
                 // XXX 心情的にはクラス化したい
                 var diceReg = new Regex("([1-9][0-9]{0,2})d([1-9][0-9]{0,8})", RegexOptions.IgnoreCase);
                 var diceTest = diceReg.Match(activity.Text);
@@ -39,7 +39,6 @@ namespace MyMicrofostBot
                     var rollResults = Enumerable.Range(0, n).Select(x => randomizer.Next(d) + 1).ToList();
                     var sb = new StringBuilder();
                     sb.Append($"{n}d{d} = {rollResults.Sum()} [{string.Join(", ", rollResults)}]");
-
 
                     Activity reply = activity.CreateReply(sb.ToString());
                     await connector.Conversations.ReplyToActivityAsync(reply);
