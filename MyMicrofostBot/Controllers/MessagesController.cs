@@ -16,7 +16,7 @@ namespace MyMicrofostBot
     public class MessagesController : ApiController
     {
         private static Random randomizer = new Random();
-        
+
         /// <summary>
         /// POST: api/Messages
         /// Receive a message from a user and reply to it
@@ -26,6 +26,10 @@ namespace MyMicrofostBot
             if (activity.Type == ActivityTypes.Message)
             {
                 ConnectorClient connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+
+                var stateClient = activity.GetStateClient();
+                var userData = await stateClient.BotState.GetUserDataAsync(activity.ChannelId, activity.From.Id);
+                var rollCount = userData.GetProperty<int>("RollCount");
 
                 // XXX 心情的にはクラス化したい
                 var diceReg = new Regex("([1-9][0-9]{0,2})d([1-9][0-9]{0,8})", RegexOptions.IgnoreCase);
@@ -40,6 +44,10 @@ namespace MyMicrofostBot
                     var sb = new StringBuilder();
                     sb.Append($"{n}d{d} = {rollResults.Sum()} [{string.Join(", ", rollResults)}]");
 
+                    rollCount += n;
+                    userData.SetProperty<int>("RollCount", rollCount);
+                    await stateClient.BotState.SetUserDataAsync(activity.ChannelId, activity.From.Id, userData);
+
                     Activity reply = activity.CreateReply(sb.ToString());
                     await connector.Conversations.ReplyToActivityAsync(reply);
                 }
@@ -49,7 +57,7 @@ namespace MyMicrofostBot
                     int length = (activity.Text ?? string.Empty).Length;
 
                     // return our reply to the user
-                    Activity reply = activity.CreateReply($"You sent {activity.Text} which was {length} characters");
+                    Activity reply = activity.CreateReply($"You sent {activity.Text} which was {length} characters... Your total roll count: {rollCount}");
                     await connector.Conversations.ReplyToActivityAsync(reply);
                 }
             }
